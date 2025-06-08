@@ -1,0 +1,40 @@
+#+TITLE: bouncingbeaver
+
+A command-line tool that demonstrates unmarshaling DynamoDB AttributeValue format to Go structs.
+
+* Usage
+
+#+BEGIN_SRC bash
+# Show version
+bouncingbeaver version
+
+# Process DynamoDB data from default test file
+bouncingbeaver unmarshal
+
+# Process DynamoDB data from specific file
+bouncingbeaver unmarshal --file data/other_file.json
+bouncingbeaver unmarshal -f data/other_file.json
+
+# Process DynamoDB data from stdin
+cat data/sample.json | bouncingbeaver unmarshal --file -
+aws dynamodb query ... | bouncingbeaver unmarshal -f -
+
+# Enable verbose output
+bouncingbeaver unmarshal -v
+
+# Enable debug output with custom file
+bouncingbeaver unmarshal -f data/custom.json -vv
+#+END_SRC
+
+* Testing
+
+#+BEGIN_SRC bash
+# Run tests
+go test ./...
+
+# Update golden files when output changes
+go test ./... -test.update
+
+# Run specific test
+go test ./internal/dynamodb -v
+#+END_SRC
