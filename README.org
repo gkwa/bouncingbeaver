@@ -1,0 +1,142 @@
+#+TITLE: bouncingbeaver
+A command-line tool that demonstrates unmarshaling DynamoDB AttributeValue format to Go structs and extracting compressed HTML content.
+
+* Overview
+This tool processes product data stored in DynamoDB where the =rawHtml= field contains base64-encoded, zlib-compressed HTML content. The HTML was originally compressed using JavaScript's =pako= library and needs to be properly decompressed in Go.
+
+* Usage
+#+BEGIN_SRC bash
+# Show version
+bouncingbeaver version
+
+# Process DynamoDB data from default test file
+bouncingbeaver unmarshal
+
+# Process DynamoDB data from specific file
+bouncingbeaver unmarshal --file internal/dynamodb/testdata/sample_input.json
+bouncingbeaver unmarshal -f internal/dynamodb/testdata/sample_input.json
+
+# Process DynamoDB data from stdin
+cat internal/dynamodb/testdata/sample_input.json | bouncingbeaver unmarshal --file -
+aws dynamodb query ... | bouncingbeaver unmarshal -f -
+
+# Enable verbose output
+bouncingbeaver unmarshal -v
+
+# Enable debug output with custom file
+bouncingbeaver unmarshal -f internal/dynamodb/testdata/sample_input.json -vv
+#+END_SRC
+
+* Data Format
+The tool expects DynamoDB export format JSON with items containing compressed HTML:
+
+#+BEGIN_SRC json
+{
+ "Items": [
+   {
+     "rawHtml": {
+       "S": "eNrNVltv4ygU..."
+     },
+     "name": {
+       "S": "Product Name"
+     },
+     "id": {
+       "S": "product-id"
+     }
+   }
+ ],
+ "Count": 1,
+ "ScannedCount": 1
+}
+#+END_SRC
+
+Where =rawHtml.S= contains base64-encoded, zlib-compressed HTML content created by JavaScript's =pako.deflate()=.
+
+* Output
+The tool outputs JSON with an additional =RawHTMLExtracted= field containing the decompressed HTML:
+
+#+BEGIN_SRC json
+[
+ {
+   "ID": "product-id",
+   "Name": "Product Name",
+   "RawHTML": "eNrNVltv4ygU...",
+   "RawHTMLExtracted": "<div class=\"product-card\">...</div>"
+ }
+]
+#+END_SRC
+
+Note: HTML angle brackets are not escaped in the output for better readability.
+
+* Testing
+#+BEGIN_SRC bash
+# Run all tests
+go test ./...
+
+# Run tests with count to avoid caching
+go test ./... -count=1
+
+# Update golden files when output changes
+go test ./... -test.update
+
+# Run specific test package
+go test ./internal/dynamodb -v
+go test ./internal/processing -v
+
+# Run specific test
+go test ./internal/processing -run TestHTMLExtractor_ExtractHTML_ActualData -v
+#+END_SRC
+
+** Test Data
+- =internal/dynamodb/testdata/sample_input.json= - Sample DynamoDB export with 2 product items
+- =internal/dynamodb/testdata/products_output.golden= - Expected output for golden file testing
+- Test data includes real compressed HTML from PCC Markets product pages
+
+* Project Structure
+#+BEGIN_SRC
+.
+├── README.org
+├── docs/
+│   └── compression-troubleshooting.md   # Technical debugging guide
+├── app/                                 # Application layer
+│   ├── displayer.go                    # JSON output formatting
+│   └── processor.go                    # Main processing logic
+├── cmd/                                # CLI commands
+│   ├── root.go
+│   ├── unmarshal.go
+│   └── version.go
+├── internal/
+│   ├── dynamodb/                       # DynamoDB data loading
+│   │   ├── client.go
+│   │   ├── loader.go
+│   │   ├── loader_test.go
+│   │   └── testdata/
+│   │       ├── sample_input.json       # Test DynamoDB data
+│   │       └── products_output.golden  # Expected test output
+│   ├── logger/                         # Logging utilities
+│   ├── models/                         # Data models
+│   │   └── product.go
+│   ├── processing/                     # HTML extraction logic
+│   │   ├── html_extractor.go
+│   │   └── html_extractor_test.go
+│   └── testutil/                       # Test utilities
+│       └── golden.go                   # Golden file testing
+└── main.go
+#+END_SRC
+
+* Key Technical Details
+- JavaScript's =pako.deflate()= produces zlib format (deflate + headers), not raw deflate
+- Go must use =compress/zlib=, not =compress/flate= to decompress the data
+- JSON output uses =SetEscapeHTML(false)= to keep HTML readable
+- Test data includes both successful and failed decompression examples
+
+* Troubleshooting
+See =docs/compression-troubleshooting.md= for detailed debugging information including:
+- CLI commands to test base64/zlib decompression
+- Common error messages and solutions
+- Format detection techniques
+
+** Common Issues
+- "zlib: invalid checksum" - Data corruption or wrong compression format
+- "corrupt input before offset" - Using wrong decompression library (flate vs zlib)
+- Escaped HTML in output - Need =SetEscapeHTML(false)= in JSON encoder
