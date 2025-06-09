@@ -1,10 +1,13 @@
 #+TITLE: bouncingbeaver
+
 A command-line tool that demonstrates unmarshaling DynamoDB AttributeValue format to Go structs and extracting compressed HTML content.
 
 * Overview
+
 This tool processes product data stored in DynamoDB where the =rawHtml= field contains base64-encoded, zlib-compressed HTML content. The HTML was originally compressed using JavaScript's =pako= library and needs to be properly decompressed in Go.
 
 * Usage
+
 #+BEGIN_SRC bash
 # Show version
 bouncingbeaver version
@@ -20,14 +23,22 @@ bouncingbeaver unmarshal -f internal/dynamodb/testdata/sample_input.json
 cat internal/dynamodb/testdata/sample_input.json | bouncingbeaver unmarshal --file -
 aws dynamodb query ... | bouncingbeaver unmarshal -f -
 
+# Randomize the order of output products
+bouncingbeaver unmarshal --randomize
+bouncingbeaver unmarshal -f internal/dynamodb/testdata/sample_input.json --randomize
+
 # Enable verbose output
 bouncingbeaver unmarshal -v
 
 # Enable debug output with custom file
 bouncingbeaver unmarshal -f internal/dynamodb/testdata/sample_input.json -vv
+
+# Combine flags
+bouncingbeaver unmarshal -f - --randomize -v
 #+END_SRC
 
 * Data Format
+
 The tool expects DynamoDB export format JSON with items containing compressed HTML:
 
 #+BEGIN_SRC json
@@ -53,6 +64,7 @@ The tool expects DynamoDB export format JSON with items containing compressed HT
 Where =rawHtml.S= contains base64-encoded, zlib-compressed HTML content created by JavaScript's =pako.deflate()=.
 
 * Output
+
 The tool outputs JSON with an additional =RawHTMLExtracted= field containing the decompressed HTML:
 
 #+BEGIN_SRC json
@@ -68,7 +80,10 @@ The tool outputs JSON with an additional =RawHTMLExtracted= field containing the
 
 Note: HTML angle brackets are not escaped in the output for better readability.
 
+When the =--randomize= flag is used, the products will be output in a random order each time the command is run.
+
 * Testing
+
 #+BEGIN_SRC bash
 # Run all tests
 go test ./...
@@ -88,11 +103,13 @@ go test ./internal/processing -run TestHTMLExtractor_ExtractHTML_ActualData -v
 #+END_SRC
 
 ** Test Data
+
 - =internal/dynamodb/testdata/sample_input.json= - Sample DynamoDB export with 2 product items
 - =internal/dynamodb/testdata/products_output.golden= - Expected output for golden file testing
 - Test data includes real compressed HTML from PCC Markets product pages
 
 * Project Structure
+
 #+BEGIN_SRC
 .
 ├── README.org
@@ -125,18 +142,22 @@ go test ./internal/processing -run TestHTMLExtractor_ExtractHTML_ActualData -v
 #+END_SRC
 
 * Key Technical Details
+
 - JavaScript's =pako.deflate()= produces zlib format (deflate + headers), not raw deflate
 - Go must use =compress/zlib=, not =compress/flate= to decompress the data
 - JSON output uses =SetEscapeHTML(false)= to keep HTML readable
 - Test data includes both successful and failed decompression examples
+- The =--randomize= flag uses Go's =math/rand= package to shuffle products before output
 
 * Troubleshooting
+
 See =docs/compression-troubleshooting.md= for detailed debugging information including:
 - CLI commands to test base64/zlib decompression
 - Common error messages and solutions
 - Format detection techniques
 
 ** Common Issues
+
 - "zlib: invalid checksum" - Data corruption or wrong compression format
 - "corrupt input before offset" - Using wrong decompression library (flate vs zlib)
 - Escaped HTML in output - Need =SetEscapeHTML(false)= in JSON encoder

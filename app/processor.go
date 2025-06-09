@@ -17,7 +17,7 @@ func NewProcessor(verbosity int) *Processor {
 	}
 }
 
-func (p *Processor) ProcessData(inputFile string) error {
+func (p *Processor) ProcessData(inputFile string, randomize bool) error {
 	p.logger.Info("Processing DynamoDB data", "input", inputFile)
 
 	sampleData, err := p.dynamodb.LoadData(inputFile)
@@ -35,7 +35,7 @@ func (p *Processor) ProcessData(inputFile string) error {
 	p.logger.Debug("Successfully unmarshaled products", "count", len(products))
 
 	displayer := NewDisplayer(p.logger)
-	displayer.ShowProducts(products)
+	displayer.ShowProducts(products, randomize)
 
 	return nil
 }

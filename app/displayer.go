@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/gkwa/bouncingbeaver/internal/logger"
 	"github.com/gkwa/bouncingbeaver/internal/models"
@@ -19,8 +21,17 @@ func NewDisplayer(logger *logger.Logger) *Displayer {
 	}
 }
 
-func (d *Displayer) ShowProducts(products []models.Product) {
-	d.logger.Debug("Displaying products", "count", len(products))
+func (d *Displayer) ShowProducts(products []models.Product, randomize bool) {
+	d.logger.Debug("Displaying products", "count", len(products), "randomize", randomize)
+
+	// Randomize the order if requested
+	if randomize {
+		rand.Seed(time.Now().UnixNano())
+		rand.Shuffle(len(products), func(i, j int) {
+			products[i], products[j] = products[j], products[i]
+		})
+		d.logger.Debug("Products randomized")
+	}
 
 	// Create an encoder that doesn't escape HTML
 	var buf bytes.Buffer

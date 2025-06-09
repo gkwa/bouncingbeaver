@@ -5,7 +5,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var inputFile string
+var (
+	inputFile string
+	randomize bool
+)
 
 var unmarshalCmd = &cobra.Command{
 	Use:   "unmarshal",
@@ -13,11 +16,12 @@ var unmarshalCmd = &cobra.Command{
 	Long:  "Demonstrates unmarshaling DynamoDB AttributeValue format to Go structs",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		processor := app.NewProcessor(verbose)
-		return processor.ProcessData(inputFile)
+		return processor.ProcessData(inputFile, randomize)
 	},
 }
 
 func init() {
 	unmarshalCmd.Flags().StringVarP(&inputFile, "file", "f", "internal/dynamodb/testdata/sample_input.json", "input file (use '-' for stdin)")
+	unmarshalCmd.Flags().BoolVar(&randomize, "randomize", false, "randomize the order of output products")
 	rootCmd.AddCommand(unmarshalCmd)
 }
